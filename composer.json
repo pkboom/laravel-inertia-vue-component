@@ -1,0 +1,34 @@
+{
+    "name": "pkboom/laravel-inertia-vue-component",
+    "description": "",
+    "keywords": [
+        "pkboom",
+        "laravel-inertia-vue-component"
+    ],
+    "homepage": "https://github.com/pkboom/laravel-inertia-vue-component",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Keunbae Park",
+            "email": "ppotpo@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pkboom\\InertiaVueComponent\\": "src"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pkboom\\InertiaVueComponent\\InertiaVueComponentServiceProvider"
+            ]
+        }
+    }
+}
