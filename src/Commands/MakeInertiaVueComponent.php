@@ -41,7 +41,7 @@ class MakeInertiaVueComponent extends Command
                 }),
             ];
         })->filter(function ($component) {
-            return !is_file(resource_path("js/Pages/{$component->name}.vue"));
+            return ! is_file(resource_path("js/Pages/{$component->name}.vue"));
         })->each(function ($component) {
             $directories = explode('/', $component->name);
 
@@ -70,25 +70,10 @@ class MakeInertiaVueComponent extends Command
 
     public function component($props)
     {
-        return <<<Vue
-<template>
-  <div>
-    
-  </div>
-</template>
+        $stubPath = 'stubs/vue-component.stub';
 
-<script>
-export default {
-  props: {
-$props
-  }, 
-  data() {
-    return {}
-  },
-  mounted() {},
-  methods: {},
-}
-</script>
-Vue;
+        $path = is_file($vueComponentPath = base_path($stubPath)) ? $vueComponentPath : __DIR__."/../../$stubPath";
+
+        return preg_replace('/{{ props }}/', $props, file_get_contents($path));
     }
 }

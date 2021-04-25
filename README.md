@@ -16,3 +16,9 @@ Once a controller is created, which contains `Inertia:render`, run this command.
 php artisan make:inertia-vue-component <Controller Name>
 // e.g. php artisan make:inertia-vue-component UserController
 ```
+
+Publish to edit stub.
+
+```bash
+php artisan vendor:publish --provider="Pkboom\InertiaVueComponent\InertiaVueComponentServiceProvider"
+```
