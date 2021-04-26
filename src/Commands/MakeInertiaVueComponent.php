@@ -18,7 +18,7 @@ class MakeInertiaVueComponent extends Command
         $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP7);
 
         try {
-            $stmts = $parser->parse(file_get_contents($this->path($this->argument('controller'))));
+            $stmts = $parser->parse(file_get_contents($this->controllerPath($this->argument('controller'))));
         } catch (Error $error) {
             $this->error($error->getMessage());
 
@@ -27,7 +27,7 @@ class MakeInertiaVueComponent extends Command
 
         File::ensureDirectoryExists(resource_path('js/Pages'));
 
-        $propsToRemove = collect();
+        $propsToRemove = [];
 
         $nodes = (new NodeFinder())->find($stmts, function (Node $node) {
             return $node instanceof Node\Stmt\Return_;
@@ -47,18 +47,15 @@ class MakeInertiaVueComponent extends Command
 
             $filename = array_pop($directories);
 
-            if (is_file(resource_path("js/Pages/{$component->name}.vue"))) {
-                $contents = file_get_contents(resource_path("js/Pages/{$component->name}.vue"));
+            if (is_file($this->vuePath($component->name))) {
+                $contents = file_get_contents($this->vuePath($component->name));
 
                 preg_match_all('/(\w+):\s+(?:Array|Object|String|Number|Boolean)/', $contents, $matches);
-                dump($matches[1]);
 
-                dump(array_diff($matches[1], $component->props->toArray()));
-                $propsToRemove = collect(array_diff($matches[1], $component->props->toArray()))
-                    ->mapWithKeys(fn ($prop) => [
-                        $component->name => "Remove `$prop` from Pages/{$component->name}.vue",
-                    ]);
-                dump($propsToRemove);
+                collect(array_diff($matches[1], $component->props->toArray()))
+                    ->each(function ($prop) use ($component, &$propsToRemove) {
+                        $propsToRemove[] = "Remove `$prop` from Pages/{$component->name}.vue";
+                    });
 
                 $props = $component->props
                     ->filter(fn ($prop) => !in_array($prop, $matches[1]))
@@ -70,7 +67,7 @@ class MakeInertiaVueComponent extends Command
 
                 $parts = preg_split('/props: {/', $contents);
 
-                file_put_contents(resource_path("js/Pages/{$component->name}.vue"), $parts[0].'props: {'.($props ? PHP_EOL : null).$props.$parts[1]);
+                file_put_contents($this->vuePath($component->name), $parts[0].'props: {'.($props ? PHP_EOL : null).$props.$parts[1]);
             } else {
                 File::ensureDirectoryExists(resource_path('js/Pages/'.implode('/', $directories)));
 
@@ -80,20 +77,18 @@ class MakeInertiaVueComponent extends Command
                     return "\t\t$prop: $type,";
                 })->implode(PHP_EOL);
 
-                file_put_contents(resource_path("js/Pages/{$component->name}.vue"), $this->component($props));
+                file_put_contents($this->vuePath($component->name), $this->component($props));
             }
-        })->each(function ($component) use ($propsToRemove) {
-            if (isset($propsToRemove[$component->name])) {
-                $this->info($propsToRemove[$component->name]);
-            }
-
-            $this->info(resource_path("js/Pages/{$component->name}.vue"));
+        })->each(function ($component) {
+            $this->info($this->vuePath($component->name));
         });
+
+        collect($propsToRemove)->each(fn ($text) => $this->info($text));
 
         return 0;
     }
 
-    public function path($controller)
+    public function controllerPath($controller)
     {
         return app_path("Http/Controllers/$controller.php");
     }
@@ -105,5 +100,10 @@ class MakeInertiaVueComponent extends Command
         $path = is_file($vueComponentPath = base_path($stubPath)) ? $vueComponentPath : __DIR__."/../../$stubPath";
 
         return preg_replace('/{{ props }}/', $props, file_get_contents($path));
+    }
+
+    public function vuePath($name)
+    {
+        return resource_path("js/Pages/{$name}.vue");
     }
 }
