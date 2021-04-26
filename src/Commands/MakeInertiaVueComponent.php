@@ -27,6 +27,8 @@ class MakeInertiaVueComponent extends Command
 
         File::ensureDirectoryExists(resource_path('js/Pages'));
 
+        $propsToRemove = collect();
+
         $nodes = (new NodeFinder())->find($stmts, function (Node $node) {
             return $node instanceof Node\Stmt\Return_;
         });
@@ -40,7 +42,7 @@ class MakeInertiaVueComponent extends Command
                     return $value->key->value;
                 }),
             ];
-        })->each(function ($component) {
+        })->each(function ($component) use (&$propsToRemove) {
             $directories = explode('/', $component->name);
 
             $filename = array_pop($directories);
@@ -48,10 +50,18 @@ class MakeInertiaVueComponent extends Command
             if (is_file(resource_path("js/Pages/{$component->name}.vue"))) {
                 $contents = file_get_contents(resource_path("js/Pages/{$component->name}.vue"));
 
-                preg_match('/props(.+?)(?:data\(\)|created|mounted|components|watch|computed|methods)/s', $contents, $matches);
+                preg_match_all('/(\w+):\s+(?:Array|Object|String|Number|Boolean)/', $contents, $matches);
+                dump($matches[1]);
 
-                $props = collect($component->props)
-                    ->filter(fn ($prop) => !str_contains($matches[1], $prop))
+                dump(array_diff($matches[1], $component->props->toArray()));
+                $propsToRemove = collect(array_diff($matches[1], $component->props->toArray()))
+                    ->mapWithKeys(fn ($prop) => [
+                        $component->name => "Remove `$prop` from Pages/{$component->name}.vue",
+                    ]);
+                dump($propsToRemove);
+
+                $props = $component->props
+                    ->filter(fn ($prop) => !in_array($prop, $matches[1]))
                     ->map(function ($prop) use ($filename) {
                         $type = $this->choice("`$filename.vue` > `$prop` type?", ['Array', 'Object', 'String', 'Number', 'Boolean'], 0);
 
@@ -60,11 +70,11 @@ class MakeInertiaVueComponent extends Command
 
                 $parts = preg_split('/props: {/', $contents);
 
-                file_put_contents(resource_path("js/Pages/{$component->name}.vue"), $parts[0].'props: {'.PHP_EOL.$props.$parts[1]);
+                file_put_contents(resource_path("js/Pages/{$component->name}.vue"), $parts[0].'props: {'.($props ? PHP_EOL : null).$props.$parts[1]);
             } else {
                 File::ensureDirectoryExists(resource_path('js/Pages/'.implode('/', $directories)));
 
-                $props = collect($component->props)->map(function ($prop) use ($filename) {
+                $props = $component->props->map(function ($prop) use ($filename) {
                     $type = $this->choice("`$filename.vue` > `$prop` type?", ['Array', 'Object', 'String', 'Number', 'Boolean'], 0);
 
                     return "\t\t$prop: $type,";
@@ -72,7 +82,11 @@ class MakeInertiaVueComponent extends Command
 
                 file_put_contents(resource_path("js/Pages/{$component->name}.vue"), $this->component($props));
             }
-        })->each(function ($component) {
+        })->each(function ($component) use ($propsToRemove) {
+            if (isset($propsToRemove[$component->name])) {
+                $this->info($propsToRemove[$component->name]);
+            }
+
             $this->info(resource_path("js/Pages/{$component->name}.vue"));
         });
 
